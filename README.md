@@ -1,52 +1,87 @@
-# Moniepoint Analytics API - My Solution to DreamDev 2026
+# Moniepoint Analytics API – DreamDev 2026
 
-This repository is a REST API that analyzes merchant activity data and exposes analytics endpoints.
+REST API that analyzes merchant activity data and exposes five analytics endpoints. Built for the Moniepoint Growth & Intelligence use case: understanding merchant behavior across the product ecosystem.
+
+---
 
 ## Author
 
-Name: Silas Osunba  
-Email: osunbasilas@gmail.com  
+**Name:** Silas Osunba  
+**Email:** osunbasilas@gmail.com  
 
-## Project Description
+---
+
+## For reviewers: quick setup
+
+To run and test this submission:
+
+1. **Clone** the repo and go into the project folder.
+2. **Install dependencies** with UV: `uv sync`.
+3. **Create a PostgreSQL database** (e.g. `moniepoint_analytics`) and set a password for your user.
+4. **Configure environment:** copy `.env.example` to `.env` and set `DATABASE_URL` to your database (see [Configure environment](#4-configure-environment) below).
+5. **Import CSV data:** `uv run python -m src.scripts.import_activities` (requires CSV files in `data/`).
+6. **Start the API:** `uv run uvicorn src.main:app --host 0.0.0.0 --port 8080`.
+7. **Test the endpoints** at `http://localhost:8080` (see [Test endpoints](#7-test-endpoints)).
+
+The API runs on **port 8080** and returns JSON. Interactive docs: `http://localhost:8080/docs`.
+
+---
+
+## Project description
 
 This project implements a REST Analytics API that processes merchant activity logs and exposes business insights across Moniepoint products (POS, AIRTIME, BILLS, CARD_PAYMENT, SAVINGS, MONIEBOOK, KYC). CSV data is imported into PostgreSQL and queried to serve the required analytics endpoints.
 
-### Task 1: Import CSV data into a database — ✅ Achieved
+### Task 1: Import CSV data into a database
 
-As required, the application:
+As required:
 
-1. **Reads CSV files** from the `data/` directory (files named `data/activities_YYYYMMDD.csv`).
-2. **Imports the data** into a database (PostgreSQL; e.g. local or [Neon](https://neon.tech)). The import script is `src/scripts/import_activities.py`; run it with `uv run python -m src.scripts.import_activities` after setting `DATABASE_URL` in `.env`.
-3. **Uses the database** to serve all analytics endpoints (the API queries the imported data).
+1. **Read** CSV files from the `data/` directory (filenames: `activities_YYYYMMDD.csv`).
+2. **Import** the data into a database (PostgreSQL; local or cloud e.g. [Neon](https://neon.tech)). Import script: `src/scripts/import_activities.py`.
+3. **Query** the database to serve all five analytics endpoints.
 
-All CSV data has been imported into the chosen database (e.g. Neon) before the analytics API is used.
+Data is loaded before the API is used; the API reads only from the database.
 
-## Tech Stack
+---
+
+## Problem approach
+
+The Growth and Intelligence Team at Moniepoint needs to understand merchant behavior across the full product ecosystem. Solving this means using their records (data) to get insights: how merchants behave, how the growth team can scale products, which areas need attention for better outcomes, and which areas are doing well so strategies can be refined.
+
+The solution goes beyond implementation: it uses code to answer business questions and deliver actionable insights. These insights support the Data Analytics and Science Team in forming strategies and answering stakeholders.
+
+**Data import:** CSV files are read and validated field-by-field before being stored. I used Neon for the database (local PostgreSQL or any other cloud Postgres would work). The import is designed to: (1) **Validate per row** — each row is turned into a record by `row_to_activity()`; if it returns `None` (bad or missing data), the row is skipped. (2) **Insert in batches** — valid records are collected and inserted in batches of 5000 to reduce round-trips and speed up the import. (3) **Ignore duplicates** — inserts use PostgreSQL `ON CONFLICT (event_id) DO NOTHING`, so re-runs do not fail on existing rows. (4) **Flush remaining rows** — the last partial batch is inserted the same way. The result is a bulk import that skips bad rows and is safe to re-run.
+
+**Analytics endpoints:** (1) **Top merchant** — filter to successful events, group by merchant, sum amount, take the single merchant with highest total; return `merchant_id` and `total_volume` (2 dp). (2) **Monthly active merchants** — truncate `event_timestamp` to month, keep successful events with non-null timestamp, count distinct merchants per month, return a map of month (e.g. `"2024-01"`) to count. (3) **Product adoption** — count distinct merchants per product (all statuses), order by count descending. (4) **KYC funnel** — count distinct merchants at each of three stages (DOCUMENT_SUBMITTED, VERIFICATION_COMPLETED, TIER_UPGRADE) for successful KYC events only; return the three counts. (5) **Failure rates** — per product, failure rate = 100 × FAILED / (SUCCESS + FAILED), excluding PENDING; use conditional aggregation and `nullif` to avoid division by zero; order by rate descending; return product and rate (1 dp).
+
+---
+
+## Assumptions
+
+- CSV files live in the `data/` directory with names `activities_YYYYMMDD.csv`.
+- **Malformed rows:** Rows with invalid `event_id` (non-UUID), missing required fields (`merchant_id`, `product`, `event_type`, `status`), or invalid `amount` are **skipped** during import; no row is updated in place.
+- **Empty `event_timestamp`** is stored as NULL; analytics that depend on time (e.g. monthly active merchants) exclude these rows.
+- **Formatting:** Monetary values in responses use 2 decimal places; failure rates use 1 decimal place.
+- The API is served on **port 8080** as specified.
+- **psycopg2-binary** is used instead of psycopg2 to avoid configuring system-level database libraries and to meet the challenge timeline.
+
+---
+
+## Tech stack
 
 - Python (FastAPI)
 - PostgreSQL
 - SQLAlchemy
+- UV (package and env management)
 
-## Assumptions
+---
 
-- CSV files are placed in the `data/` directory with names `activities_YYYYMMDD.csv`.
-- Rows with invalid `event_id` (non-UUID), missing required fields (`merchant_id`, `product`, `event_type`, `status`), or invalid `amount` are skipped during import; no row is updated.
-- Empty `event_timestamp` is stored as NULL; analytics that depend on time (e.g. monthly active merchants) exclude these rows.
-- Monetary values in responses use 2 decimal places; failure rates use 1 decimal place.
-- The API is run on port 8080 as specified.
-- I used psycopg2-binary (commonly used for rapid development and testing) instead of psycopg2. My primary reason that led to this choice is because it skip the requirement to configure complex database development libraries - which is considered in this code challenge, so as i could meet up with project's deadline.
-
-
-
-## Setup Instructions
-
-For a **step-by-step manual installation guide**, see [docs/INSTALL.md](docs/INSTALL.md).
+## Setup instructions (for reviewers)
 
 ### Prerequisites
 
-- [UV](https://docs.astral.sh/uv/) (install: `curl -LsSf https://astral.sh/uv/install.sh | sh` or `pip install uv`)
+- [UV](https://docs.astral.sh/uv/) — install: `curl -LsSf https://astral.sh/uv/install.sh | sh` or `pip install uv`
 - Python 3.10+
-- PostgreSQL (e.g. 14+)
+- PostgreSQL (local or cloud, e.g. Neon)
 - CSV data in `data/activities_YYYYMMDD.csv`
 
 ### 1. Clone repository
@@ -56,55 +91,71 @@ git clone https://github.com/TolaniSilas/moniepoint-dreamdevs-analytics-api.git
 cd moniepoint-dreamdevs-analytics-api
 ```
 
-### 2. Create virtual environment and install dependencies (UV)
+### 2. Install dependencies
 
 ```bash
 uv sync
 ```
 
-This creates a `.venv` and installs dependencies from `pyproject.toml`. To use a specific Python: `uv sync --python 3.11`.
+This creates a `.venv` and installs dependencies from `pyproject.toml`. To pin Python: `uv sync --python 3.11`.
 
 ### 3. Create PostgreSQL database
 
-```bash
-# Using psql (adjust user if needed)
-createdb moniepoint_analytics
+Create a database (e.g. `moniepoint_analytics`) and ensure your user has a password set.
 
-# Or in psql:
-# CREATE DATABASE moniepoint_analytics;
+**Local example:**
+
+```bash
+createdb moniepoint_analytics
+# If needed: set password for your user (e.g. postgres) in psql
 ```
+
+**Neon / cloud:** Create a project and database in the provider dashboard and copy the connection string.
 
 ### 4. Configure environment
 
-Copy the example env file and set your database URL:
+Create a `.env` file in the **project root** (same folder as `pyproject.toml`):
 
 ```bash
 cp .env.example .env
-# Edit .env and set DATABASE_URL, e.g.:
-# DATABASE_URL=postgresql://postgres:postgres@localhost:5432/moniepoint_analytics
 ```
+
+Edit `.env` and set `DATABASE_URL` to your database:
+
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE_NAME
+```
+
+Example (local):
+
+```env
+DATABASE_URL=postgresql://postgres:your_password@localhost:5432/moniepoint_analytics
+```
+
+If the password contains special characters (e.g. `$`), use URL encoding in the value (e.g. `%24` for `$`). See [docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md) for more detail.
 
 ### 5. Import CSV data
 
-From the project root (with `data/` containing your CSV files):
+From the project root, with CSV files in `data/`:
 
 ```bash
 uv run python -m src.scripts.import_activities
 ```
 
-This creates the `activities` table and loads all `data/activities_*.csv` files. Malformed rows are skipped and counts are printed.
+This creates the `merchant_activities` table and loads all `data/activities_*.csv` files. Malformed rows are skipped; duplicate `event_id`s on re-run are ignored.
 
-### 6. Start the API (run the analytics endpoints)
+### 6. Start the API
 
 ```bash
 uv run uvicorn src.main:app --host 0.0.0.0 --port 8080
 ```
 
-The API will be available at `http://localhost:8080`. For a step-by-step run and test guide, see [docs/RUN_API.md](docs/RUN_API.md).
+The API is available at **http://localhost:8080**. Optional: [docs/RUN_API.md](docs/RUN_API.md) for a step-by-step run and test guide.
 
 ### 7. Test endpoints
 
 ```bash
+curl http://localhost:8080/
 curl http://localhost:8080/analytics/top-merchant
 curl http://localhost:8080/analytics/monthly-active-merchants
 curl http://localhost:8080/analytics/product-adoption
@@ -112,46 +163,44 @@ curl http://localhost:8080/analytics/kyc-funnel
 curl http://localhost:8080/analytics/failure-rates
 ```
 
-## API Endpoints (Port 8080)
+Or open **http://localhost:8080/docs** to call the endpoints from the browser.
+
+---
+
+## API endpoints (port 8080)
 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /analytics/top-merchant` | Merchant with highest total successful transaction volume |
-| `GET /analytics/monthly-active-merchants` | Unique merchants with at least one successful event per month |
+| `GET /analytics/monthly-active-merchants` | Unique merchants with ≥1 successful event per month |
 | `GET /analytics/product-adoption` | Unique merchant count per product (sorted by count descending) |
-| `GET /analytics/kyc-funnel` | KYC conversion funnel (documents submitted, verifications completed, tier upgrades) |
-| `GET /analytics/failure-rates` | Failure rate per product (FAILED / (SUCCESS + FAILED)) × 100, excluding PENDING |
+| `GET /analytics/kyc-funnel` | KYC funnel: documents submitted, verifications completed, tier upgrades |
+| `GET /analytics/failure-rates` | Failure rate per product: 100×FAILED/(SUCCESS+FAILED), PENDING excluded |
 
 All responses are JSON.
+
+---
 
 ## Repository structure
 
 ```
 moniepoint-dreamdevs-analytics-api/
 ├── src/
-│   ├── __init__.py
 │   ├── main.py                 # FastAPI app entrypoint
-│   ├── core/                   # Config and shared dependencies
-│   │   ├── config.py           # Settings (DB URL, data dir)
-│   │   └── deps.py             # get_db and other deps
-│   ├── db/                     # Database layer
-│   │   └── base.py             # Engine, SessionLocal, Base
-│   ├── models/                 # SQLAlchemy ORM models
-│   │   └── activity.py
-│   ├── schemas/                # Pydantic request/response schemas
-│   │   └── analytics.py
-│   ├── services/               # Business logic
-│   │   └── analytics.py        # AnalyticsService
-│   ├── api/                    # HTTP layer
-│   │   └── v1/
-│   │       ├── router.py       # Aggregates v1 routes
-│   │       └── endpoints/
-│   │           └── analytics.py
-│   └── scripts/                # CLI / one-off tasks
-│       └── import_activities.py
-├── data/
-│   └── activities_YYYYMMDD.csv
-├── pyproject.toml          # Project metadata & dependencies (UV)
-├── .env.example
+│   ├── core/                   # Config and dependencies
+│   │   ├── config.py           # Settings (DATABASE_URL, data dir)
+│   │   └── deps.py             # get_db
+│   ├── db/base.py              # Engine, SessionLocal, Base
+│   ├── models/activity.py     # Activity (merchant_activities)
+│   ├── schemas/analytics.py    # Pydantic response schemas
+│   ├── services/analytics.py   # AnalyticsService (queries)
+│   ├── api/v1/                 # Routes
+│   │   ├── router.py
+│   │   └── endpoints/analytics.py
+│   └── scripts/import_activities.py
+├── data/                       # activities_YYYYMMDD.csv
+├── docs/                       # DATABASE_SETUP, INSTALL, RUN_API
+├── pyproject.toml              # Dependencies (UV)
+├── .env.example                # Template for .env
 └── README.md
 ```
