@@ -126,12 +126,6 @@ Edit `.env` and set `DATABASE_URL` to your database:
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE_NAME
 ```
 
-Example (local):
-
-```env
-DATABASE_URL=postgresql://postgres:your_password@localhost:5432/moniepoint_analytics
-```
-
 If the password contains special characters (e.g. `$`), use URL encoding in the value (e.g. `%24` for `$`). See [docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md) for more detail.
 
 ### 5. Import CSV data
