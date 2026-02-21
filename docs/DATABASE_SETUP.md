@@ -32,4 +32,4 @@ From the project root:
 uv run python -m src.scripts.import_activities
 ```
 
-Then start the API as in the main README. The app reads `DATABASE_URL` from `.env` and connects to your local or cloud PostgreSQL.
+Then start the API as in the main README or docs/RUN_API.md. The app reads `DATABASE_URL` from `.env` and connects to your local or cloud PostgreSQL.
