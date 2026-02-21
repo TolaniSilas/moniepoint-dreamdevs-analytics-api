@@ -1,11 +1,9 @@
 """Merchant activity event model."""
 from decimal import Decimal
 from uuid import UUID
-
 from sqlalchemy import DateTime, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
-
 from src.db.base import Base
 
 

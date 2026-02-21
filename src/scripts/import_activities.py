@@ -1,7 +1,7 @@
 """
-Import CSV activity files into PostgreSQL.
-Handles malformed rows by skipping them and continuing.
-Run from project root: python -m src.scripts.import_activities
+import CSV activity files into PostgreSQL.
+handles malformed rows by skipping them and continuing.
+run from project root: python -m src.scripts.import_activities
 """
 import csv
 import re
@@ -9,10 +9,8 @@ import sys
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from uuid import UUID
-
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
-
 from src.core.config import settings
 from src.db.base import Base, SessionLocal, engine
 from src.models import Activity
@@ -97,7 +95,7 @@ def row_to_activity(row: dict) -> dict | None:
 
 
 def import_csv_file(path: Path, db: Session) -> tuple[int, int]:
-    """Import one CSV. Uses ON CONFLICT DO NOTHING so re-runs skip existing event_ids."""
+    """import one CSV. uses ON CONFLICT DO NOTHING so re-runs skip existing event_ids."""
     processed = 0
     skipped = 0
     batch = []
