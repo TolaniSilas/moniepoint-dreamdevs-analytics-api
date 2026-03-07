@@ -49,9 +49,18 @@ The Growth and Intelligence Team at Moniepoint needs to understand merchant beha
 
 The solution goes beyond implementation: it uses code to answer business questions and deliver actionable insights. These insights support the Data Analytics and Science Team in forming strategies and answering stakeholders.
 
-**Data import:** CSV files are read and validated field-by-field before being stored. I used Neon for the database (local PostgreSQL or any other cloud Postgres would work). The import is designed to: (1) **Validate per row** — each row is turned into a record by `row_to_activity()`; if it returns `None` (bad or missing data), the row is skipped. (2) **Insert in batches** — valid records are collected and inserted in batches of 5000 to reduce round-trips and speed up the import. (3) **Ignore duplicates** — inserts use PostgreSQL `ON CONFLICT (event_id) DO NOTHING`, so re-runs do not fail on existing rows. (4) **Flush remaining rows** — the last partial batch is inserted the same way. The result is a bulk import that skips bad rows and is safe to re-run.
+**Data import:** CSV files are read and validated field-by-field before being stored. I used Neon for the database (local PostgreSQL or any other cloud Postgres would work). The import is designed to:
+1. **Validate per row** — each row is turned into a record by `row_to_activity()`; if it returns `None` (bad or missing data), the row is skipped. 
+2. **Insert in batches** — valid records are collected and inserted in batches of 5000 to reduce round-trips and speed up the import. 
+3. **Ignore duplicates** — inserts use PostgreSQL `ON CONFLICT (event_id) DO NOTHING`, so re-runs do not fail on existing rows. 
+4. **Flush remaining rows** — the last partial batch is inserted the same way. The result is a bulk import that skips bad rows and is safe to re-run.
 
-**Analytics endpoints:** (1) **Top merchant** — filter to successful events, group by merchant, sum amount, take the single merchant with highest total; return `merchant_id` and `total_volume` (2 dp). (2) **Monthly active merchants** — truncate `event_timestamp` to month, keep successful events with non-null timestamp, count distinct merchants per month, return a map of month (e.g. `"2024-01"`) to count. (3) **Product adoption** — count distinct merchants per product (all statuses), order by count descending. (4) **KYC funnel** — count distinct merchants at each of three stages (DOCUMENT_SUBMITTED, VERIFICATION_COMPLETED, TIER_UPGRADE) for successful KYC events only; return the three counts. (5) **Failure rates** — per product, failure rate = 100 × FAILED / (SUCCESS + FAILED), excluding PENDING; use conditional aggregation and `nullif` to avoid division by zero; order by rate descending; return product and rate (1 dp).
+**Analytics endpoints:** 
+1. **Top merchant** — filter to successful events, group by merchant, sum amount, take the single merchant with highest total; return `merchant_id` and `total_volume` (2 dp). 
+2. **Monthly active merchants** — truncate `event_timestamp` to month, keep successful events with non-null timestamp, count distinct merchants per month, return a map of month (e.g. `"2024-01"`) to count. 
+3. **Product adoption** — count distinct merchants per product (all statuses), order by count descending. 
+4. **KYC funnel** — count distinct merchants at each of three stages (DOCUMENT_SUBMITTED, VERIFICATION_COMPLETED, TIER_UPGRADE) for successful KYC events only; return the three counts. 
+5. **Failure rates** — per product, failure rate = 100 × FAILED / (SUCCESS + FAILED), excluding PENDING; use conditional aggregation and `nullif` to avoid division by zero; order by rate descending; return product and rate (1 dp).
 
 ---
 
@@ -88,6 +97,7 @@ The solution goes beyond implementation: it uses code to answer business questio
 
 ```bash
 git clone https://github.com/TolaniSilas/moniepoint-dreamdevs-analytics-api.git
+
 cd moniepoint-dreamdevs-analytics-api
 ```
 
@@ -150,10 +160,15 @@ The API is available at **http://localhost:8080**. Optional: [docs/RUN_API.md](d
 
 ```bash
 curl http://localhost:8080/
+
 curl http://localhost:8080/analytics/top-merchant
+
 curl http://localhost:8080/analytics/monthly-active-merchants
+
 curl http://localhost:8080/analytics/product-adoption
+
 curl http://localhost:8080/analytics/kyc-funnel
+
 curl http://localhost:8080/analytics/failure-rates
 ```
 
