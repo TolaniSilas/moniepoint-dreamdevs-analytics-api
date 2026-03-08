@@ -9,7 +9,6 @@ from src.services.analytics import AnalyticsService
 
 
 # the logger inherits basicConfig set up in main.py.
-# logger name will be e.g. "src.api.v1.endpoints.analytics" in log output.
 logger = logging.getLogger(__name__)
 
 
