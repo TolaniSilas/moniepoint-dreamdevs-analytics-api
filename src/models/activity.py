@@ -24,4 +24,3 @@ class Activity(Base):
     channel: Mapped[str] = mapped_column(String(32), nullable=True)
     region: Mapped[str] = mapped_column(String(64), nullable=True)
     merchant_tier: Mapped[str] = mapped_column(String(32), nullable=True)
-

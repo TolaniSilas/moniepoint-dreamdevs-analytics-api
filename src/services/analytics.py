@@ -1,12 +1,12 @@
 """business logic for moniepoint analytics services: the queries and aggregations."""
 from sqlalchemy import case, func, select, and_
 from sqlalchemy.orm import Session
-
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from src.models import Activity
 
 
 class AnalyticsService:
-    """Service for analytics queries over merchant activity data."""
+    """service for analytics queries over merchant activity data."""
 
     def __init__(self, db: Session) -> None:
 
@@ -26,15 +26,26 @@ class AnalyticsService:
             .limit(1)
         )
 
-        # execute the subquery and fetch the top row.
-        row = self._db.execute(subq).first()
+        try:
+            # execute the subquery and fetch the top row.
+            row = self._db.execute(subq).first()
+
+        except OperationalError:
+            raise RuntimeError("Database is unreachable. Please try again later.")
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(f"A database error occurred while fetching top merchant: {e}")
 
         # if no successful transactions found, return None for merchant_id and 0 for the total volume.
         if not row:
             return {"merchant_id": None, "total_volume": 0.00}
-        
-        # convert total to float and round to 2 decimal places for proper response formatting.
-        total = float(row.total) if row.total is not None else 0.0
+
+        try:
+            # convert total to float and round to 2 decimal places for proper response formatting.
+            total = float(row.total) if row.total is not None else 0.0
+
+        except (TypeError, ValueError):
+            total = 0.0
 
         return {"merchant_id": row.merchant_id, "total_volume": round(total, 2)}
 
@@ -61,8 +72,15 @@ class AnalyticsService:
             .order_by(month)
         )
 
-        # execute the query.
-        rows = self._db.execute(stmt).all()
+        try:
+            # execute the query.
+            rows = self._db.execute(stmt).all()
+
+        except OperationalError:
+            raise RuntimeError("Database is unreachable. Please try again later.")
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(f"A database error occurred while fetching monthly active merchants: {e}")
 
         return {row.month: row.count for row in rows}
 
@@ -80,8 +98,15 @@ class AnalyticsService:
             .order_by(func.count(func.distinct(Activity.merchant_id)).desc())
         )
 
-        # execute the query.
-        rows = self._db.execute(stmt).all()
+        try:
+            # execute the query.
+            rows = self._db.execute(stmt).all()
+
+        except OperationalError:
+            raise RuntimeError("Database is unreachable. Please try again later.")
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(f"A database error occurred while fetching product adoption: {e}")
 
         return {row.product: row.count for row in rows}
 
@@ -92,24 +117,31 @@ class AnalyticsService:
         # condition to filter only successful KYC events.
         kyc_success = and_(Activity.product == "KYC", Activity.status == "SUCCESS")
 
-        # count unique merchants at each KYC stage using condition aggregations.
-        docs = self._db.execute(
-            select(func.count(func.distinct(Activity.merchant_id))).where(
-                and_(kyc_success, Activity.event_type == "DOCUMENT_SUBMITTED")
-            )
-        ).scalar() or 0
+        try:
+            # count unique merchants at each KYC stage using condition aggregations.
+            docs = self._db.execute(
+                select(func.count(func.distinct(Activity.merchant_id))).where(
+                    and_(kyc_success, Activity.event_type == "DOCUMENT_SUBMITTED")
+                )
+            ).scalar() or 0
 
-        verif = self._db.execute(
-            select(func.count(func.distinct(Activity.merchant_id))).where(
-                and_(kyc_success, Activity.event_type == "VERIFICATION_COMPLETED")
-            )
-        ).scalar() or 0
+            verif = self._db.execute(
+                select(func.count(func.distinct(Activity.merchant_id))).where(
+                    and_(kyc_success, Activity.event_type == "VERIFICATION_COMPLETED")
+                )
+            ).scalar() or 0
 
-        tier = self._db.execute(
-            select(func.count(func.distinct(Activity.merchant_id))).where(
-                and_(kyc_success, Activity.event_type == "TIER_UPGRADE")
-            )
-        ).scalar() or 0
+            tier = self._db.execute(
+                select(func.count(func.distinct(Activity.merchant_id))).where(
+                    and_(kyc_success, Activity.event_type == "TIER_UPGRADE")
+                )
+            ).scalar() or 0
+
+        except OperationalError:
+            raise RuntimeError("Database is unreachable. Please try again later.")
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(f"A database error occurred while fetching KYC funnel: {e}")
 
         return {
             "documents_submitted": docs,
@@ -127,7 +159,7 @@ class AnalyticsService:
         # use conditional aggregation to count successful transactions.
         success = func.sum(case((Activity.status == "SUCCESS", 1), else_=0))
 
-        # 
+        # total resolved transactions per product (FAILED + SUCCESS); it is used as denominator in failure rate formula.
         total_resolved = failed + success
 
         # calculate failure rate and handle division by zero error with nullif.
@@ -141,10 +173,21 @@ class AnalyticsService:
             .order_by(rate_expr.desc())
         )
 
-        # execute the query and format results.
-        rows = self._db.execute(stmt).all()
+        try:
+            # execute the query and format results.
+            rows = self._db.execute(stmt).all()
 
-        return [
-            {"product": row.product, "failure_rate": round(float(row.failure_rate or 0), 1)}
-            for row in rows
-        ]
+        except OperationalError:
+            raise RuntimeError("Database is unreachable. Please try again later.")
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(f"A database error occurred while fetching failure rates: {e}")
+
+        try:
+            return [
+                {"product": row.product, "failure_rate": round(float(row.failure_rate or 0), 1)}
+                for row in rows
+            ]
+
+        except (TypeError, ValueError) as e:
+            raise RuntimeError(f"Unexpected data format in failure rates result: {e}")

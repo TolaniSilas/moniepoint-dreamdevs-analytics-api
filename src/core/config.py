@@ -3,7 +3,7 @@ from pathlib import Path
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings
 
-# Project root (folder containing pyproject.toml, src/, data/)
+# project root (folder containing pyproject.toml, src/, data/)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -31,6 +31,6 @@ except ValidationError as e:
     raise RuntimeError(
         "\n\n[CONFIG ERROR] Missing required environment variable(s): "
         f"{', '.join(str(f).upper() for f in missing)}\n"
-        "Please copy '.env.example' to '.env' and fill in the required values.\n"
-        "Example: DATABASE_URL=postgresql://user:password@localhost:5432/moniepoint_analytics\n"
+        "please copy '.env.example' to '.env' and fill in the required values.\n"
+        "for instance: DATABASE_URL=postgresql://user:password@localhost:5432/moniepoint_analytics\n"
     ) from None
