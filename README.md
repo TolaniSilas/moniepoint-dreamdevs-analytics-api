@@ -84,7 +84,35 @@ The solution goes beyond implementation: it uses code to answer business questio
 
 ---
 
-## Setup instructions (for reviewers)
+
+## Project structure
+
+```
+moniepoint-dreamdevs-analytics-api/
+├── src/
+│   ├── main.py                 # FastAPI app entrypoint
+│   ├── core/                   # Config and dependencies
+│   │   ├── config.py           # Settings (DATABASE_URL, data dir)
+│   │   └── deps.py             # get_db
+│   ├── db/base.py              # Engine, SessionLocal, Base
+│   ├── models/activity.py     # Activity (merchant_activities)
+│   ├── schemas/analytics.py    # Pydantic response schemas
+│   ├── services/analytics.py   # AnalyticsService (queries)
+│   ├── api/v1/                 # Routes
+│   │   ├── router.py
+│   │   └── endpoints/analytics.py
+│   └── scripts/import_activities.py
+├── data/                       # activities_YYYYMMDD.csv
+├── docs/                       # DATABASE_SETUP, INSTALL, RUN_API
+├── pyproject.toml              # Dependencies (UV)
+├── .env.example                # Template for .env
+└── README.md
+```
+
+---
+
+## Setup instructions
+This section provides guide on how to set up this project:
 
 ### Prerequisites
 
@@ -190,26 +218,22 @@ All responses are JSON.
 
 ---
 
-## Repository structure
 
+## Running tests
+
+Run the full test suite from the project root:
+
+```bash
+uv run pytest -v
 ```
-moniepoint-dreamdevs-analytics-api/
-├── src/
-│   ├── main.py                 # FastAPI app entrypoint
-│   ├── core/                   # Config and dependencies
-│   │   ├── config.py           # Settings (DATABASE_URL, data dir)
-│   │   └── deps.py             # get_db
-│   ├── db/base.py              # Engine, SessionLocal, Base
-│   ├── models/activity.py     # Activity (merchant_activities)
-│   ├── schemas/analytics.py    # Pydantic response schemas
-│   ├── services/analytics.py   # AnalyticsService (queries)
-│   ├── api/v1/                 # Routes
-│   │   ├── router.py
-│   │   └── endpoints/analytics.py
-│   └── scripts/import_activities.py
-├── data/                       # activities_YYYYMMDD.csv
-├── docs/                       # DATABASE_SETUP, INSTALL, RUN_API
-├── pyproject.toml              # Dependencies (UV)
-├── .env.example                # Template for .env
-└── README.md
-```
+
+The test suite covers two layers:
+
+- **Integration tests** (`tests/api/v1/test_endpoints.py`): This tests the full HTTP request/response cycle for all five endpoints using FastAPI's `TestClient`.
+- **Unit tests** (`tests/services/test_analytics_service.py`): This tests each `AnalyticsService` method directly with a mocked SQLAlchemy session, covering edge cases, and error conditions.
+
+---
+
+## License
+
+This project is licensed under the terms specified in the **LICENSE** file. Check the file for complete details.
