@@ -50,17 +50,17 @@ The Growth and Intelligence Team at Moniepoint needs to understand merchant beha
 The solution goes beyond implementation: it uses code to answer business questions and deliver actionable insights. These insights support the Data Analytics and Science Team in forming strategies and answering stakeholders.
 
 **Data import:** CSV files are read and validated field-by-field before being stored. I used Neon for the database (local PostgreSQL or any other cloud Postgres would work). The import is designed to:
-1. **Validate per row** — each row is turned into a record by `row_to_activity()`; if it returns `None` (bad or missing data), the row is skipped. 
-2. **Insert in batches** — valid records are collected and inserted in batches of 5000 to reduce round-trips and speed up the import. 
-3. **Ignore duplicates** — inserts use PostgreSQL `ON CONFLICT (event_id) DO NOTHING`, so re-runs do not fail on existing rows. 
-4. **Flush remaining rows** — the last partial batch is inserted the same way. The result is a bulk import that skips bad rows and is safe to re-run.
+1. **Validate per row** - each row is turned into a record by `row_to_activity()`; if it returns `None` (bad or missing data), the row is skipped. 
+2. **Insert in batches** - valid records are collected and inserted in batches of 5000 to reduce round-trips and speed up the import. 
+3. **Ignore duplicates** - inserts use PostgreSQL `ON CONFLICT (event_id) DO NOTHING`, so re-runs do not fail on existing rows. 
+4. **Flush remaining rows** - the last partial batch is inserted the same way. The result is a bulk import that skips bad rows and is safe to re-run.
 
 **Analytics endpoints:** 
-1. **Top merchant** — filter to successful events, group by merchant, sum amount, take the single merchant with highest total; return `merchant_id` and `total_volume` (2 dp). 
-2. **Monthly active merchants** — truncate `event_timestamp` to month, keep successful events with non-null timestamp, count distinct merchants per month, return a map of month (e.g. `"2024-01"`) to count. 
-3. **Product adoption** — count distinct merchants per product (all statuses), order by count descending. 
-4. **KYC funnel** — count distinct merchants at each of three stages (DOCUMENT_SUBMITTED, VERIFICATION_COMPLETED, TIER_UPGRADE) for successful KYC events only; return the three counts. 
-5. **Failure rates** — per product, failure rate = 100 × FAILED / (SUCCESS + FAILED), excluding PENDING; use conditional aggregation and `nullif` to avoid division by zero; order by rate descending; return product and rate (1 dp).
+1. **Top merchant** - filter to successful events, group by merchant, sum amount, take the single merchant with highest total; return `merchant_id` and `total_volume` (2 dp). 
+2. **Monthly active merchants** - truncate `event_timestamp` to month, keep successful events with non-null timestamp, count distinct merchants per month, return a map of month (e.g. `"2024-01"`) to count. 
+3. **Product adoption** - count distinct merchants per product (all statuses), order by count descending. 
+4. **KYC funnel** - count distinct merchants at each of three stages (DOCUMENT_SUBMITTED, VERIFICATION_COMPLETED, TIER_UPGRADE) for successful KYC events only; return the three counts. 
+5. **Failure rates** - per product, failure rate = 100 × FAILED / (SUCCESS + FAILED), excluding PENDING; use conditional aggregation and `nullif` to avoid division by zero; order by rate descending; return product and rate (1 dp).
 
 ---
 
@@ -86,30 +86,35 @@ The solution goes beyond implementation: it uses code to answer business questio
 
 
 ## Project structure
-
 ```
 moniepoint-dreamdevs-analytics-api/
 ├── src/
-│   ├── main.py                 # FastAPI app entrypoint
-│   ├── core/                   # Config and dependencies
-│   │   ├── config.py           # Settings (DATABASE_URL, data dir)
-│   │   └── deps.py             # get_db
-│   ├── db/base.py              # Engine, SessionLocal, Base
-│   ├── models/activity.py     # Activity (merchant_activities)
-│   ├── schemas/analytics.py    # Pydantic response schemas
-│   ├── services/analytics.py   # AnalyticsService (queries)
-│   ├── api/v1/                 # Routes
+│   ├── main.py                       # FastAPI app entrypoint, logging, middleware
+│   ├── core/                         # Config and dependencies
+│   │   ├── config.py                 # Settings (DATABASE_URL, data dir)
+│   │   └── deps.py                   # get_db
+│   ├── db/base.py                    # Engine, SessionLocal, Base
+│   ├── models/activity.py            # Activity (merchant_activities)
+│   ├── schemas/analytics.py          # Pydantic response schemas
+│   ├── services/analytics.py         # AnalyticsService (queries)
+│   ├── api/v1/                       # Routes
 │   │   ├── router.py
 │   │   └── endpoints/analytics.py
 │   └── scripts/import_activities.py
-├── data/                       # activities_YYYYMMDD.csv
-├── docs/                       # DATABASE_SETUP, INSTALL, RUN_API
-├── pyproject.toml              # Dependencies (UV)
-├── .env.example                # Template for .env
+├── tests/                            # Test suite
+│   ├── api/v1/
+│   │   └── test_endpoints.py         # Integration tests (HTTP layer)
+│   └── services/
+│       └── test_analytics_service.py # Unit tests (service layer)
+├── data/                             # activities_YYYYMMDD.csv
+├── docs/                             # DATABASE_SETUP, INSTALL, RUN_API
+├── pyproject.toml                    # Dependencies and pytest config (UV)
+├── .env.example                      # Template for .env
 └── README.md
 ```
 
 ---
+
 
 ## Setup instructions
 This section provides guide on how to set up this project:
@@ -236,4 +241,4 @@ The test suite covers two layers:
 
 ## License
 
-This project is licensed under the terms specified in the **LICENSE** file. Check the file for complete details.
+This project is licensed under the terms specified in the [LICENSE](LICENSE) file. Check the file for complete details.
